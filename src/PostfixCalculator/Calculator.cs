@@ -4,9 +4,11 @@ namespace PostfixCalculator;
 
 /// <summary>
 /// Reverse Polish Notation calculator.
-/// This first TDD iteration only understands the simplest possible
-/// expressions: two operands followed by exactly one binary operator
-/// (three whitespace-separated tokens).
+/// Second TDD iteration: supports either a simple two-operand
+/// expression (three tokens) or a three-operand expression composed
+/// of a first binary operation followed by a second operation that
+/// combines the intermediate result with the third operand
+/// (five tokens, form "a b op c op").
 /// </summary>
 public class Calculator : ICalculator
 {
@@ -21,16 +23,30 @@ public class Calculator : ICalculator
         var tokens = expression.Split(
             ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        if (tokens.Length != 3)
+        return tokens.Length switch
         {
-            throw new ArgumentException(
-                "Expression must contain exactly two operands and one operator.",
-                nameof(expression));
-        }
+            3 => EvaluateTwoOperands(tokens),
+            5 => EvaluateThreeOperands(tokens),
+            _ => throw new ArgumentException(
+                "Expression length is not supported yet.", nameof(expression)),
+        };
+    }
 
+    private static double EvaluateTwoOperands(string[] tokens)
+    {
         var left = ParseNumber(tokens[0]);
         var right = ParseNumber(tokens[1]);
         return ApplyOperator(left, right, tokens[2]);
+    }
+
+    private static double EvaluateThreeOperands(string[] tokens)
+    {
+        // Form: "a b op1 c op2"  →  ((a op1 b) op2 c)
+        var a = ParseNumber(tokens[0]);
+        var b = ParseNumber(tokens[1]);
+        var intermediate = ApplyOperator(a, b, tokens[2]);
+        var c = ParseNumber(tokens[3]);
+        return ApplyOperator(intermediate, c, tokens[4]);
     }
 
     private static double ParseNumber(string token) =>
