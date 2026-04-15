@@ -4,11 +4,12 @@ namespace PostfixCalculator;
 
 /// <summary>
 /// Reverse Polish Notation calculator.
-/// Second TDD iteration: supports either a simple two-operand
-/// expression (three tokens) or a three-operand expression composed
-/// of a first binary operation followed by a second operation that
-/// combines the intermediate result with the third operand
-/// (five tokens, form "a b op c op").
+/// Final TDD iteration: a classic stack-based evaluator that handles
+/// expressions of arbitrary length. Every numeric token is pushed
+/// onto a stack; every operator pops its two operands, applies the
+/// binary operation and pushes the result back. A well-formed RPN
+/// expression always ends with exactly one value on the stack —
+/// that value is the result.
 /// </summary>
 public class Calculator : ICalculator
 {
@@ -23,34 +24,49 @@ public class Calculator : ICalculator
         var tokens = expression.Split(
             ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        return tokens.Length switch
+        var stack = new Stack<double>();
+
+        foreach (var token in tokens)
         {
-            3 => EvaluateTwoOperands(tokens),
-            5 => EvaluateThreeOperands(tokens),
-            _ => throw new ArgumentException(
-                "Expression length is not supported yet.", nameof(expression)),
-        };
+            if (IsOperator(token))
+            {
+                if (stack.Count < 2)
+                {
+                    throw new ArgumentException(
+                        $"Operator '{token}' requires two operands.", nameof(expression));
+                }
+
+                var right = stack.Pop();
+                var left = stack.Pop();
+                stack.Push(ApplyOperator(left, right, token));
+            }
+            else
+            {
+                stack.Push(ParseNumber(token));
+            }
+        }
+
+        if (stack.Count != 1)
+        {
+            throw new ArgumentException(
+                "Malformed RPN expression: operands left unconsumed.", nameof(expression));
+        }
+
+        return stack.Pop();
     }
 
-    private static double EvaluateTwoOperands(string[] tokens)
+    private static bool IsOperator(string token) =>
+        token is "+" or "-" or "*" or "/";
+
+    private static double ParseNumber(string token)
     {
-        var left = ParseNumber(tokens[0]);
-        var right = ParseNumber(tokens[1]);
-        return ApplyOperator(left, right, tokens[2]);
-    }
+        if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        {
+            throw new ArgumentException($"Unknown token: '{token}'.", nameof(token));
+        }
 
-    private static double EvaluateThreeOperands(string[] tokens)
-    {
-        // Form: "a b op1 c op2"  →  ((a op1 b) op2 c)
-        var a = ParseNumber(tokens[0]);
-        var b = ParseNumber(tokens[1]);
-        var intermediate = ApplyOperator(a, b, tokens[2]);
-        var c = ParseNumber(tokens[3]);
-        return ApplyOperator(intermediate, c, tokens[4]);
+        return value;
     }
-
-    private static double ParseNumber(string token) =>
-        double.Parse(token, CultureInfo.InvariantCulture);
 
     private static double ApplyOperator(double left, double right, string op) => op switch
     {
